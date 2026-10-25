@@ -122,7 +122,7 @@ public class MainActivity extends Activity {
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         s.setSupportZoom(false);
         s.setBuiltInZoomControls(false);
-        s.setUserAgentString(s.getUserAgentString() + " XForFireTV/1.2");
+        s.setUserAgentString(s.getUserAgentString() + " XForFireTV/1.3");
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
 
         web.setWebChromeClient(new WebChromeClient() {
@@ -170,6 +170,7 @@ public class MainActivity extends Activity {
                 super.onPageFinished(view, url);
                 applyTvBrowsingMode();
                 applyTheme();
+                web.requestFocus();
             }
         });
         content.addView(web, new FrameLayout.LayoutParams(-1, -1));
@@ -177,16 +178,50 @@ public class MainActivity extends Activity {
     }
 
     private void applyTvBrowsingMode() {
-        // Keep the site's own controls intact. Forcing controls on every video creates
-        // extra focus stops on TV and can interfere with X's custom player.
+        // X is a single-page app, so install a delegated handler and observe later
+        // feed updates rather than patching only the first page load.
         String js = "(function(){" +
-            "if(!document.getElementById('xftv-style')){" +
-            "var s=document.createElement('style');s.id='xftv-style';" +
-            "s.textContent=':focus-visible{outline:3px solid #1d9bf0!important;outline-offset:3px!important} video{max-width:100%;}';" +
-            "document.head.appendChild(s);}" +
-            // Do not add tabindex or controls to every media element. X's own player
-            // manages those and adding controls creates unwanted remote focus stops.
-            "document.querySelectorAll('video').forEach(function(v){v.setAttribute('playsinline','true');});" +
+            "if(window.__xftvRemoteInstalled)return;window.__xftvRemoteInstalled=true;" +
+            "var style=document.createElement('style');style.id='xftv-style';" +
+            "style.textContent=" +
+            "'html,body{scroll-behavior:smooth!important;}' +" +
+            "'[data-testid=\"sidebarColumn\"]{display:none!important;}' +" +
+            "'nav[aria-label=\"Primary\"]{display:none!important;}' +" +
+            "'article[data-testid=\"tweet\"].xftv-selected-post{outline:3px solid #1d9bf0!important;outline-offset:5px!important;border-radius:12px!important;}' +" +
+            "'video{max-width:100%;}' +" +
+            "'[data-testid=\"tweet\"]{scroll-margin-top:28px;}' ;" +
+            "document.head.appendChild(style);" +
+            "function posts(){return Array.from(document.querySelectorAll('article[data-testid=\"tweet\"]')).filter(function(p){var r=p.getBoundingClientRect();return r.width>0&&r.height>0;});}" +
+            "function postOf(el){return el&&el.closest?el.closest('article[data-testid=\"tweet\"]'):null;}" +
+            "function mark(p){if(!p)return null;document.querySelectorAll('article.xftv-selected-post').forEach(function(x){x.classList.remove('xftv-selected-post');});" +
+            "p.classList.add('xftv-selected-post');p.setAttribute('tabindex','-1');try{p.focus({preventScroll:true});}catch(e){p.focus();}p.scrollIntoView({behavior:'smooth',block:'center'});return p;}" +
+            "function visiblePost(){var all=posts();if(!all.length)return null;var y=window.innerHeight*0.45;return all.reduce(function(best,p){var r=p.getBoundingClientRect();var d=Math.abs((r.top+r.bottom)/2-y);return !best||d<best.d?{p:p,d:d}:best;},null).p;}" +
+            "function move(delta){var all=posts();if(!all.length)return;var cur=postOf(document.activeElement)||document.querySelector('article.xftv-selected-post');" +
+            "var i=all.indexOf(cur);if(i<0){mark(visiblePost());return;}var next=Math.max(0,Math.min(all.length-1,i+delta));" +
+            "if(next===i){all[i].scrollIntoView({behavior:'smooth',block:'center'});return;}mark(all[next]);}" +
+            "function videoIn(p){if(!p)return null;var vs=Array.from(p.querySelectorAll('video'));return vs.find(function(v){var r=v.getBoundingClientRect();return r.width>0&&r.height>0;})||null;}" +
+            "function goFullscreen(v){if(!v)return;try{if(v.requestFullscreen){var q=v.requestFullscreen();if(q&&q.catch)q.catch(function(){});}" +
+            "else if(v.webkitEnterFullscreen){v.webkitEnterFullscreen();}" +
+            "else{var c=v.closest('[data-testid*=\"video\"]')||v.parentElement;if(c&&c.requestFullscreen)c.requestFullscreen();}}catch(e){}}" +
+            "document.addEventListener('keydown',function(e){" +
+            "var k=e.key,code=e.keyCode||e.which;var down=(k==='ArrowDown'||code===40),up=(k==='ArrowUp'||code===38);" +
+            "var enter=(k==='Enter'||k===' '||code===13||code===23||code===66);" +
+            "var target=e.target,active=document.activeElement,post=postOf(target)||postOf(active)||document.querySelector('article.xftv-selected-post');" +
+            "var typing=target&&(target.tagName==='INPUT'||target.tagName==='TEXTAREA'||target.isContentEditable);" +
+            "if(typing)return;" +
+            "if(down||up){" +
+            "var inVideoUi=target&&(target.closest('video')||target.closest('[aria-label*=\"Seek\"]')||target.closest('[role=\"slider\"]')||target.matches('input[type=\"range\"]'));" +
+            "if(inVideoUi||post||target===document.body||target===document.documentElement){" +
+            "e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();move(down?1:-1);return;}}" +
+            "if(enter&&post&&document.activeElement===post){" +
+            "var v=videoIn(post);if(v){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();" +
+            "if(!v.paused){goFullscreen(v);return;}var result=v.play();if(result&&result.catch)result.catch(function(){});post.dataset.xftvVideoStarted='1';" +
+            "v.addEventListener('playing',function(){post.dataset.xftvVideoStarted='1';},{once:true});return;}}" +
+            "},true);" +
+            "document.addEventListener('focusin',function(e){var p=postOf(e.target);if(p&&!e.target.matches('button,a,input,[role=\"button\"],[role=\"slider\"]')){mark(p);}},true);" +
+            "var observer=new MutationObserver(function(){if(!document.getElementById('xftv-style'))document.head.appendChild(style);if(!document.querySelector('article.xftv-selected-post')&&posts().length)mark(visiblePost());});" +
+            "observer.observe(document.documentElement,{childList:true,subtree:true});" +
+            "document.querySelectorAll('video').forEach(function(v){v.setAttribute('playsinline','true');v.addEventListener('playing',function(){var p=postOf(v);if(p)p.dataset.xftvVideoStarted='1';});});" +
             "})();";
         web.evaluateJavascript(js, null);
     }
@@ -260,6 +295,14 @@ public class MainActivity extends Activity {
             return super.dispatchKeyEvent(event);
         }
         if (event.getAction() == KeyEvent.ACTION_DOWN && code == KeyEvent.KEYCODE_BACK && customVideoView != null) {
+            exitFullscreen();
+            return true;
+        }
+        // If the web player's seek control captures the remote in full-screen,
+        // Up/Down is an escape hatch back to the feed. Left/Right remain available
+        // to seek within the video.
+        if (event.getAction() == KeyEvent.ACTION_DOWN && customVideoView != null &&
+                (code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN)) {
             exitFullscreen();
             return true;
         }

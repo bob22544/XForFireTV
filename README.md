@@ -1,21 +1,22 @@
-# X for Fire TV 1.2
+# X for Fire TV 1.3
 
 An unofficial Android WebView wrapper for X, laid out for a Fire TV remote. It is not affiliated with X and is not a native X client.
 
-## v1.2 changes
+## v1.3 changes
 
-- Does not force browser controls onto every video. X's own player controls are left intact to avoid creating extra remote focus stops.
-- Keeps a clear focus outline for keyboard/remote navigation.
-- Full-screen video now restores the previous system UI state and has a re-entrancy guard when exiting.
-- Dark/light selection is saved on the device between launches.
-- Volume keys are passed to Android's normal handling.
-- Adds a release-signing path so future APKs can update over the installed version when a persistent signing key is configured.
+- Adds remote-first post navigation: Up/Down moves between visible X posts instead of making the remote tab through every link and button.
+- Automatically highlights and centres the selected post, including posts loaded later as the feed scrolls.
+- Hides X's redundant left navigation and right sidebar so the app's own section menu and the feed have less clutter.
+- OK on a selected post with a video starts playback; pressing OK again while it is playing requests full-screen playback in the same app.
+- Up/Down escapes a focused video seek control and moves to another post. In full-screen mode, Up/Down exits full screen back to the feed; Left/Right remain available for seeking.
+- Keeps X's own player and in-app WebView playback. It does not launch an external Android video player.
+- Retains the v1.2 full-screen cleanup, persistent dark mode, and release-signing support.
 
 ## Important limitations
 
 - This remains a WebView wrapper. X can change its website, restrict embedded login, or alter playback and remote focus at any time.
 - Full-screen video depends on X's player exposing Android WebView's standard custom-view callbacks. Some video types may still behave differently.
-- Remote focus cannot be guaranteed across every X page, advertisement, video widget, or Fire OS version. Test on the actual device.
+- Remote focus cannot be guaranteed across every X page, advertisement, video widget, or Fire OS version. The new feed navigation is a best-effort DOM integration and needs testing on the actual device.
 - Dark mode requests the corresponding browser colour scheme and changes the app shell; X may apply its own account/site theme rules.
 - This app does not collect credentials. Login is handled by X's website inside Android WebView.
 - Piko is a patch collection for the official Android X app, not a standalone Fire TV app, so it is not bundled here.
@@ -26,7 +27,7 @@ An unofficial Android WebView wrapper for X, laid out for a Fire TV remote. It i
 2. In GitHub, create or use a public repository named `XForFireTV`.
 3. Upload the contents of the extracted `XForFireTV` folder, including the hidden `.github` folder. Commit the files to the default branch.
 4. Open **Actions** and enable workflows if prompted.
-5. Open **Releases > Draft a new release**, create a new tag such as `v1.2.0`, and publish it.
+5. Open **Releases > Draft a new release**, create a new tag such as `v1.3.0`, and publish it.
 6. Wait for the workflow to complete. The release asset will be named `app-fire-tv.apk`.
 7. Downloader URL format:
    `https://github.com/YOUR-GITHUB-USERNAME/XForFireTV/releases/latest/download/app-fire-tv.apk`
@@ -67,7 +68,7 @@ Without a persistent key, the workflow makes a debug APK and GitHub's temporary 
 
 1. Replace the project files in your existing repository with the contents of this ZIP. Keep `.github/workflows/build-release.yml`.
 2. Commit the changes.
-3. Publish a new release with a new tag, such as `v1.2.0` (use a later unused tag if already taken).
+3. Publish a new release with a new tag, such as `v1.3.0` (use a later unused tag if already taken).
 4. Wait for the build to succeed, then use the same `releases/latest/download/app-fire-tv.apk` URL in Downloader.
 5. Fire TV may ask you to approve the install. Downloader does not silently update apps in the background.
 
@@ -80,4 +81,4 @@ Install Android Studio and Android SDK API 35, open this project, sync Gradle, t
 - Application ID: `tv.xremote`
 - Minimum Android API: 23
 - Target API: 28
-- Version: 1.2 (versionCode 3)
+- Version: 1.3 (versionCode 4)
