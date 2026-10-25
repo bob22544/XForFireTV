@@ -178,50 +178,50 @@ public class MainActivity extends Activity {
     }
 
     private void applyTvBrowsingMode() {
-        // X is a single-page app, so install a delegated handler and observe later
-        // feed updates rather than patching only the first page load.
+        // X is a single-page app. Reinstall the handlers only once per document,
+        // while a MutationObserver keeps styling new feed items as they arrive.
         String js = "(function(){" +
             "if(window.__xftvRemoteInstalled)return;window.__xftvRemoteInstalled=true;" +
             "var style=document.createElement('style');style.id='xftv-style';" +
-            "style.textContent=" +
-            "'html,body{scroll-behavior:smooth!important;}' +" +
-            "'[data-testid=\"sidebarColumn\"]{display:none!important;}' +" +
-            "'nav[aria-label=\"Primary\"]{display:none!important;}' +" +
-            "'article[data-testid=\"tweet\"].xftv-selected-post{outline:3px solid #1d9bf0!important;outline-offset:5px!important;border-radius:12px!important;}' +" +
-            "'video{max-width:100%;}' +" +
-            "'[data-testid=\"tweet\"]{scroll-margin-top:28px;}' ;" +
+            "style.textContent='html,body{scroll-behavior:smooth!important;}'+" +
+            "'[data-testid=\"sidebarColumn\"]{display:none!important;}'+" +
+            "'nav[aria-label=\"Primary\"]{display:none!important;}'+" +
+            "'article[data-testid=\"tweet\"].xftv-selected-post{outline:3px solid #1d9bf0!important;outline-offset:4px!important;border-radius:12px!important;}'+" +
+            "'video{max-width:100%;}'+ '[data-testid=\"tweet\"]{scroll-margin-top:28px;}';" +
             "document.head.appendChild(style);" +
+            "var lastVideo=null;" +
             "function posts(){return Array.from(document.querySelectorAll('article[data-testid=\"tweet\"]')).filter(function(p){var r=p.getBoundingClientRect();return r.width>0&&r.height>0;});}" +
             "function postOf(el){return el&&el.closest?el.closest('article[data-testid=\"tweet\"]'):null;}" +
-            "function mark(p){if(!p)return null;document.querySelectorAll('article.xftv-selected-post').forEach(function(x){x.classList.remove('xftv-selected-post');});" +
-            "p.classList.add('xftv-selected-post');p.setAttribute('tabindex','-1');try{p.focus({preventScroll:true});}catch(e){p.focus();}p.scrollIntoView({behavior:'smooth',block:'center'});return p;}" +
-            "function visiblePost(){var all=posts();if(!all.length)return null;var y=window.innerHeight*0.45;return all.reduce(function(best,p){var r=p.getBoundingClientRect();var d=Math.abs((r.top+r.bottom)/2-y);return !best||d<best.d?{p:p,d:d}:best;},null).p;}" +
-            "function move(delta){var all=posts();if(!all.length)return;var cur=postOf(document.activeElement)||document.querySelector('article.xftv-selected-post');" +
-            "var i=all.indexOf(cur);if(i<0){mark(visiblePost());return;}var next=Math.max(0,Math.min(all.length-1,i+delta));" +
-            "if(next===i){all[i].scrollIntoView({behavior:'smooth',block:'center'});return;}mark(all[next]);}" +
-            "function videoIn(p){if(!p)return null;var vs=Array.from(p.querySelectorAll('video'));return vs.find(function(v){var r=v.getBoundingClientRect();return r.width>0&&r.height>0;})||null;}" +
-            "function goFullscreen(v){if(!v)return;try{if(v.requestFullscreen){var q=v.requestFullscreen();if(q&&q.catch)q.catch(function(){});}" +
-            "else if(v.webkitEnterFullscreen){v.webkitEnterFullscreen();}" +
-            "else{var c=v.closest('[data-testid*=\"video\"]')||v.parentElement;if(c&&c.requestFullscreen)c.requestFullscreen();}}catch(e){}}" +
-            "document.addEventListener('keydown',function(e){" +
-            "var k=e.key,code=e.keyCode||e.which;var down=(k==='ArrowDown'||code===40),up=(k==='ArrowUp'||code===38);" +
-            "var enter=(k==='Enter'||k===' '||code===13||code===23||code===66);" +
-            "var target=e.target,active=document.activeElement,post=postOf(target)||postOf(active)||document.querySelector('article.xftv-selected-post');" +
-            "var typing=target&&(target.tagName==='INPUT'||target.tagName==='TEXTAREA'||target.isContentEditable);" +
-            "if(typing)return;" +
-            "if(down||up){" +
-            "var inVideoUi=target&&(target.closest('video')||target.closest('[aria-label*=\"Seek\"]')||target.closest('[role=\"slider\"]')||target.matches('input[type=\"range\"]'));" +
-            "if(inVideoUi||post||target===document.body||target===document.documentElement){" +
-            "e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();move(down?1:-1);return;}}" +
-            "if(enter&&post&&document.activeElement===post){" +
-            "var v=videoIn(post);if(v){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();" +
-            "if(!v.paused){goFullscreen(v);return;}var result=v.play();if(result&&result.catch)result.catch(function(){});post.dataset.xftvVideoStarted='1';" +
-            "v.addEventListener('playing',function(){post.dataset.xftvVideoStarted='1';},{once:true});return;}}" +
+            "function mark(p,scroll){if(!p)return null;document.querySelectorAll('article.xftv-selected-post').forEach(function(x){x.classList.remove('xftv-selected-post');});p.classList.add('xftv-selected-post');p.setAttribute('tabindex','-1');try{p.focus({preventScroll:true});}catch(e){}if(scroll!==false)p.scrollIntoView({behavior:'smooth',block:'center'});return p;}" +
+            "function visiblePost(){var all=posts();if(!all.length)return null;var y=window.innerHeight*.45;return all.reduce(function(best,p){var r=p.getBoundingClientRect(),d=Math.abs((r.top+r.bottom)/2-y);return !best||d<best.d?{p:p,d:d}:best;},null).p;}" +
+            "function currentPost(){return postOf(document.activeElement)||document.querySelector('article.xftv-selected-post')||visiblePost();}" +
+            "function move(delta){var all=posts();if(!all.length)return;var cur=currentPost(),i=all.indexOf(cur);if(i<0){mark(visiblePost());return;}var next=Math.max(0,Math.min(all.length-1,i+delta));mark(all[next]);}" +
+            "function visibleVideo(p){if(!p)return null;var vs=Array.from(p.querySelectorAll('video'));return vs.find(function(v){var r=v.getBoundingClientRect();return r.width>0&&r.height>0;})||vs[0]||null;}" +
+            "function pickVideo(){var fs=document.fullscreenElement||document.webkitFullscreenElement;if(fs){if(fs.tagName==='VIDEO')return fs;var fv=fs.querySelector&&fs.querySelector('video');if(fv)return fv;}" +
+            "if(lastVideo&&document.contains(lastVideo))return lastVideo;var playing=Array.from(document.querySelectorAll('video')).find(function(v){return !v.paused&&!v.ended;});if(playing)return playing;return visibleVideo(currentPost())||Array.from(document.querySelectorAll('video')).find(function(v){var r=v.getBoundingClientRect();return r.width>0&&r.height>0;})||null;}" +
+            "function unmute(v){if(!v)return;try{v.muted=false;v.removeAttribute('muted');if(v.volume===0)v.volume=1;}catch(e){}}" +
+            "function playVideo(v){if(!v)return;lastVideo=v;unmute(v);try{var r=v.play();if(r&&r.catch)r.catch(function(){/* X may require another explicit OK press. */});}catch(e){}}" +
+            "function seek(v,delta){if(!v)return;lastVideo=v;try{var end=Number.isFinite(v.duration)?v.duration:Infinity;v.currentTime=Math.max(0,Math.min(end,v.currentTime+delta));}catch(e){}}" +
+            "function fullscreen(v){if(!v)return;lastVideo=v;try{if(v.webkitEnterFullscreen){v.webkitEnterFullscreen();return;}if(v.requestFullscreen){var r=v.requestFullscreen();if(r&&r.catch)r.catch(function(){});return;}var c=v.closest('[data-testid*=\"video\"]')||v.parentElement;if(c&&c.requestFullscreen){var q=c.requestFullscreen();if(q&&q.catch)q.catch(function(){});}}catch(e){}}" +
+            "window.__xftvRemoteAction=function(action){var v=pickVideo();if(action==='unmute'){if(v&&v.muted)unmute(v);return true;}" +
+            "if(action==='play'){if(!v){v=visibleVideo(currentPost());if(v)lastVideo=v;}if(v){playVideo(v);return true;}return false;}" +
+            "if(action==='pause'){if(v){lastVideo=v;if(!v.paused)v.pause();return true;}return false;}" +
+            "if(action==='toggle'){if(!v){v=visibleVideo(currentPost());if(v)lastVideo=v;}if(v){if(v.paused)playVideo(v);else v.pause();return true;}return false;}" +
+            "if(action==='forward'){if(v){seek(v,10);return true;}return false;}if(action==='rewind'){if(v){seek(v,-10);return true;}return false;}if(action==='fullscreen'){if(v)fullscreen(v);return !!v;}return false;};" +
+            "document.addEventListener('keydown',function(e){var k=e.key,code=e.keyCode||e.which;var target=e.target;var typing=target&&(target.tagName==='INPUT'||target.tagName==='TEXTAREA'||target.isContentEditable);if(typing)return;" +
+            "var up=(k==='ArrowUp'||code===38),down=(k==='ArrowDown'||code===40),left=(k==='ArrowLeft'||code===37),right=(k==='ArrowRight'||code===39);" +
+            "var isControl=target&&(target.closest('video')||target.closest('[role=\"slider\"]')||target.closest('[aria-label*=\"Seek\"]')||target.closest('[data-testid*=\"video\"]')||target.matches('input[type=\"range\"]'));" +
+            "if(up||down){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();move(down?1:-1);return;}" +
+            "if((left||right)&&isControl){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();window.__xftvRemoteAction(right?'forward':'rewind');return;}" +
+            "if((k==='Enter'||k===' '||code===13||code===23||code===66)&&!isControl){var p=postOf(target)||currentPost();if(p){var v=visibleVideo(p);if(v){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();lastVideo=v;window.__xftvRemoteAction(v.paused?'play':'toggle');return;}}}" +
             "},true);" +
-            "document.addEventListener('focusin',function(e){var p=postOf(e.target);if(p&&!e.target.matches('button,a,input,[role=\"button\"],[role=\"slider\"]')){mark(p);}},true);" +
-            "var observer=new MutationObserver(function(){if(!document.getElementById('xftv-style'))document.head.appendChild(style);if(!document.querySelector('article.xftv-selected-post')&&posts().length)mark(visiblePost());});" +
+            "document.addEventListener('focusin',function(e){var p=postOf(e.target);if(p&&!e.target.matches('input,textarea,[contenteditable=\"true\"]'))mark(p,false);},true);" +
+            "var observer=new MutationObserver(function(){if(!document.getElementById('xftv-style')&&document.head)document.head.appendChild(style);if(!document.querySelector('article.xftv-selected-post')&&posts().length)mark(visiblePost(),false);});" +
             "observer.observe(document.documentElement,{childList:true,subtree:true});" +
-            "document.querySelectorAll('video').forEach(function(v){v.setAttribute('playsinline','true');v.addEventListener('playing',function(){var p=postOf(v);if(p)p.dataset.xftvVideoStarted='1';});});" +
+            "document.addEventListener('play',function(e){if(e.target&&e.target.tagName==='VIDEO'){lastVideo=e.target;unmute(e.target);}},true);" +
+            "document.addEventListener('volumechange',function(e){if(e.target&&e.target.tagName==='VIDEO')lastVideo=e.target;},true);" +
+            "Array.from(document.querySelectorAll('video')).forEach(function(v){v.setAttribute('playsinline','true');v.addEventListener('playing',function(){lastVideo=v;});});" +
+            "if(posts().length)mark(visiblePost(),false);" +
             "})();";
         web.evaluateJavascript(js, null);
     }
@@ -291,35 +291,69 @@ public class MainActivity extends Activity {
 
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
         int code = event.getKeyCode();
-        if (code == KeyEvent.KEYCODE_VOLUME_UP || code == KeyEvent.KEYCODE_VOLUME_DOWN || code == KeyEvent.KEYCODE_VOLUME_MUTE) {
+        boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
+        boolean firstDown = down && event.getRepeatCount() == 0;
+
+        // Keep physical volume keys connected to Fire OS. If X has muted the
+        // HTML video, Volume Up also clears the video's mute flag without
+        // stealing the system-volume behaviour.
+        if (code == KeyEvent.KEYCODE_VOLUME_UP) {
+            if (firstDown && web != null) runVideoAction("unmute");
             return super.dispatchKeyEvent(event);
         }
-        if (event.getAction() == KeyEvent.ACTION_DOWN && code == KeyEvent.KEYCODE_BACK && customVideoView != null) {
+        if (code == KeyEvent.KEYCODE_VOLUME_DOWN || code == KeyEvent.KEYCODE_VOLUME_MUTE) {
+            return super.dispatchKeyEvent(event);
+        }
+
+        // Fire TV remotes vary: some send media keys, others send D-pad keys.
+        // Route media transport keys to X's in-page HTML video in both inline
+        // and WebChromeClient full-screen modes, never to an external player.
+        if (web != null && (code == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ||
+                code == KeyEvent.KEYCODE_MEDIA_PLAY || code == KeyEvent.KEYCODE_MEDIA_PAUSE ||
+                code == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD || code == KeyEvent.KEYCODE_MEDIA_REWIND)) {
+            if (firstDown) {
+                if (code == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) runVideoAction("toggle");
+                else if (code == KeyEvent.KEYCODE_MEDIA_PLAY) runVideoAction("play");
+                else if (code == KeyEvent.KEYCODE_MEDIA_PAUSE) runVideoAction("pause");
+                else if (code == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD) runVideoAction("forward");
+                else if (code == KeyEvent.KEYCODE_MEDIA_REWIND) runVideoAction("rewind");
+            }
+            return true;
+        }
+        if (firstDown && customVideoView != null && web != null) {
+            if (code == KeyEvent.KEYCODE_DPAD_RIGHT) { runVideoAction("forward"); return true; }
+            if (code == KeyEvent.KEYCODE_DPAD_LEFT) { runVideoAction("rewind"); return true; }
+        }
+
+        if (down && code == KeyEvent.KEYCODE_BACK && customVideoView != null) {
             exitFullscreen();
             return true;
         }
-        // If the web player's seek control captures the remote in full-screen,
-        // Up/Down is an escape hatch back to the feed. Left/Right remain available
-        // to seek within the video.
-        if (event.getAction() == KeyEvent.ACTION_DOWN && customVideoView != null &&
+        if (down && customVideoView != null &&
                 (code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN)) {
             exitFullscreen();
             return true;
         }
-        if (event.getAction() == KeyEvent.ACTION_DOWN && code == KeyEvent.KEYCODE_MENU) {
+        if (down && code == KeyEvent.KEYCODE_MENU) {
             if (buttons != null && selected >= 0 && selected < buttons.length) buttons[selected].requestFocus();
             return true;
         }
-        if (event.getAction() == KeyEvent.ACTION_DOWN && code == KeyEvent.KEYCODE_DPAD_LEFT && web != null && customVideoView == null) {
-            // A left press at the start of the page is a quick way back to the app's section menu.
+        if (down && code == KeyEvent.KEYCODE_DPAD_LEFT && web != null && customVideoView == null) {
             web.evaluateJavascript("(function(){return window.scrollX===0 && (document.activeElement===document.body || document.activeElement===document.documentElement);})()", value -> {
                 if ("true".equals(value)) buttons[selected].requestFocus();
             });
         }
-        if (event.getAction() == KeyEvent.ACTION_DOWN && code == KeyEvent.KEYCODE_BACK) {
+        if (down && code == KeyEvent.KEYCODE_BACK) {
             if (web != null && web.canGoBack()) { web.goBack(); return true; }
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    private void runVideoAction(String action) {
+        if (web == null) return;
+        // JavaScript stays in the same WebView even while its custom video view
+        // is displayed full screen. The function picks the active/selected X video.
+        web.evaluateJavascript("(function(){if(window.__xftvRemoteAction){window.__xftvRemoteAction('" + action + "');}})()", null);
     }
 
     @Override public void onBackPressed() {

@@ -1,6 +1,14 @@
-# X for Fire TV 1.3
+# X for Fire TV 1.4
 
 An unofficial Android WebView wrapper for X, laid out for a Fire TV remote. It is not affiliated with X and is not a native X client.
+
+## v1.4 changes
+
+- Adds native Fire TV media-key routing for Play/Pause, Play, Pause, Fast Forward, and Rewind, mapped to the active X HTML video while keeping playback inside the app.
+- In full-screen playback, D-pad Left/Right and dedicated Fast Forward/Rewind keys seek by 10 seconds; Play/Pause and media transport keys are handled by the app rather than relying on the seek-dot focus. Pressing OK on a playing inline video requests full-screen playback.
+- Volume Up preserves Fire OS volume handling and also clears X video mute when a video is muted.
+- Improves video selection by prioritising the full-screen/currently-playing video, then the selected post's video.
+- Keeps Up/Down as feed navigation in the inline view and as an escape hatch from full-screen controls.
 
 ## v1.3 changes
 
@@ -27,7 +35,7 @@ An unofficial Android WebView wrapper for X, laid out for a Fire TV remote. It i
 2. In GitHub, create or use a public repository named `XForFireTV`.
 3. Upload the contents of the extracted `XForFireTV` folder, including the hidden `.github` folder. Commit the files to the default branch.
 4. Open **Actions** and enable workflows if prompted.
-5. Open **Releases > Draft a new release**, create a new tag such as `v1.3.0`, and publish it.
+5. Open **Releases > Draft a new release**, create a new tag such as `v1.4.0`, and publish it.
 6. Wait for the workflow to complete. The release asset will be named `app-fire-tv.apk`.
 7. Downloader URL format:
    `https://github.com/YOUR-GITHUB-USERNAME/XForFireTV/releases/latest/download/app-fire-tv.apk`
@@ -68,7 +76,7 @@ Without a persistent key, the workflow makes a debug APK and GitHub's temporary 
 
 1. Replace the project files in your existing repository with the contents of this ZIP. Keep `.github/workflows/build-release.yml`.
 2. Commit the changes.
-3. Publish a new release with a new tag, such as `v1.3.0` (use a later unused tag if already taken).
+3. Publish a new release with a new tag, such as `v1.4.0` (use a later unused tag if already taken).
 4. Wait for the build to succeed, then use the same `releases/latest/download/app-fire-tv.apk` URL in Downloader.
 5. Fire TV may ask you to approve the install. Downloader does not silently update apps in the background.
 
@@ -81,4 +89,4 @@ Install Android Studio and Android SDK API 35, open this project, sync Gradle, t
 - Application ID: `tv.xremote`
 - Minimum Android API: 23
 - Target API: 28
-- Version: 1.3 (versionCode 4)
+- Version: 1.4 (versionCode 5)
