@@ -36,6 +36,8 @@ public class MainActivity extends Activity {
     private WebChromeClient.CustomViewCallback customVideoCallback;
     private int selected = 0;
     private boolean darkMode = true;
+    private long lastCenterPressTime = 0L;
+    private boolean suppressCenterKeyUp = false;
     private Button themeButton;
     private final String[] labels = {"Home", "Explore", "Bookmarks", "Notifications", "Messages", "Profile", "Log in"};
     private final String[] urls = {
@@ -202,7 +204,7 @@ public class MainActivity extends Activity {
             "function unmute(v){if(!v)return;try{v.muted=false;v.removeAttribute('muted');if(v.volume===0)v.volume=1;}catch(e){}}" +
             "function playVideo(v){if(!v)return;lastVideo=v;unmute(v);try{var r=v.play();if(r&&r.catch)r.catch(function(){/* X may require another explicit OK press. */});}catch(e){}}" +
             "function seek(v,delta){if(!v)return;lastVideo=v;try{var end=Number.isFinite(v.duration)?v.duration:Infinity;v.currentTime=Math.max(0,Math.min(end,v.currentTime+delta));}catch(e){}}" +
-            "function fullscreen(v){if(!v)return;lastVideo=v;try{if(v.webkitEnterFullscreen){v.webkitEnterFullscreen();return;}if(v.requestFullscreen){var r=v.requestFullscreen();if(r&&r.catch)r.catch(function(){});return;}var c=v.closest('[data-testid*=\"video\"]')||v.parentElement;if(c&&c.requestFullscreen){var q=c.requestFullscreen();if(q&&q.catch)q.catch(function(){});}}catch(e){}}" +
+            "function fullscreen(v){if(!v)return;lastVideo=v;var c=v.closest('[data-testid*=\"video\"]')||v.parentElement;function fallback(){try{if(c&&c.requestFullscreen){var q=c.requestFullscreen();if(q&&q.catch)q.catch(function(){try{if(v.webkitEnterFullscreen)v.webkitEnterFullscreen();}catch(e){}});return;}if(v.webkitEnterFullscreen)v.webkitEnterFullscreen();}catch(e){}}try{if(v.requestFullscreen){var r=v.requestFullscreen();if(r&&r.catch)r.catch(function(){fallback();});return;}fallback();}catch(e){fallback();}}" +
             "window.__xftvRemoteAction=function(action){var v=pickVideo();if(action==='unmute'){if(v&&v.muted)unmute(v);return true;}" +
             "if(action==='play'){if(!v){v=visibleVideo(currentPost());if(v)lastVideo=v;}if(v){playVideo(v);return true;}return false;}" +
             "if(action==='pause'){if(v){lastVideo=v;if(!v.paused)v.pause();return true;}return false;}" +
@@ -293,6 +295,27 @@ public class MainActivity extends Activity {
         int code = event.getKeyCode();
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
         boolean firstDown = down && event.getRepeatCount() == 0;
+        boolean centerKey = code == KeyEvent.KEYCODE_DPAD_CENTER ||
+                code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
+
+        // A quick double-press of the Fire TV remote's OK/centre button opens
+        // the currently selected or playing video in full screen. The first
+        // press is left alone so the existing single-press play/pause behaviour
+        // continues to work.
+        if (!down && suppressCenterKeyUp && centerKey) {
+            suppressCenterKeyUp = false;
+            return true;
+        }
+        if (firstDown && centerKey && customVideoView == null && web != null && web.hasFocus()) {
+            long now = android.os.SystemClock.uptimeMillis();
+            if (lastCenterPressTime > 0L && now - lastCenterPressTime <= 500L) {
+                lastCenterPressTime = 0L;
+                suppressCenterKeyUp = true;
+                runVideoAction("fullscreen");
+                return true;
+            }
+            lastCenterPressTime = now;
+        }
 
         // Keep physical volume keys connected to Fire OS. If X has muted the
         // HTML video, Volume Up also clears the video's mute flag without
