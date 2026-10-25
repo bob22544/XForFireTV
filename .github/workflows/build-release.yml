@@ -68,4 +68,3 @@ jobs:
           name: X for Fire TV ${{ github.ref_name }}
           generate_release_notes: true
           files: app-fire-tv.apk
-
