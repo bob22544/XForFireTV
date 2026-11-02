@@ -9,6 +9,8 @@ An unofficial Android WebView wrapper for X, laid out for a Fire TV remote. It i
 - Volume Up preserves Fire OS volume handling and also clears X video mute when a video is muted.
 - Improves video selection by prioritising the full-screen/currently-playing video, then the selected post's video.
 - Keeps Up/Down as feed navigation in the inline view and as an escape hatch from full-screen controls.
+- Saves the selected post and feed position before full-screen playback, then restores the same post and scroll position when Back exits the player.
+- Applies a stronger dark theme to X itself, including the feed, panels, text, links, and input fields, from the app's Dark mode toggle.
 
 ## v1.3 changes
 
@@ -25,7 +27,7 @@ An unofficial Android WebView wrapper for X, laid out for a Fire TV remote. It i
 - This remains a WebView wrapper. X can change its website, restrict embedded login, or alter playback and remote focus at any time.
 - Full-screen video depends on X's player exposing Android WebView's standard custom-view callbacks. Some video types may still behave differently.
 - Remote focus cannot be guaranteed across every X page, advertisement, video widget, or Fire OS version. The new feed navigation is a best-effort DOM integration and needs testing on the actual device.
-- Dark mode requests the corresponding browser colour scheme and changes the app shell; X may apply its own account/site theme rules.
+- Dark mode uses CSS overrides in the WebView to style X itself. X may change its website structure, so some newly introduced components may not match perfectly.
 - This app does not collect credentials. Login is handled by X's website inside Android WebView.
 - Piko is a patch collection for the official Android X app, not a standalone Fire TV app, so it is not bundled here.
 
